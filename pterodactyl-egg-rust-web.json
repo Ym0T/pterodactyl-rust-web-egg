@@ -1,0 +1,113 @@
+{
+    "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL - PTERODACTYL.IO",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": null
+    },
+    "exported_at": "2026-01-04T18:00:00+00:00",
+    "name": "Rust Web Application",
+    "author": "YmoT@tuta.com",
+    "description": "Pterodactyl Egg for running Rust web applications with support for Cloudflare Tunnels, automatic updates, and log management.\r\n\r\nFeatures:\r\n- Pre-installed Rust toolchain (stable\/nightly)\r\n- Cloudflare Tunnel support\r\n- Automatic updates with signature verification\r\n- Log cleanup module",
+    "features": null,
+    "docker_images": {
+        "ghcr.io\/ym0t\/pterodactyl-rust-web-egg:stable": "ghcr.io\/ym0t\/pterodactyl-rust-web-egg:stable",
+        "ghcr.io\/ym0t\/pterodactyl-rust-web-egg:nightly": "ghcr.io\/ym0t\/pterodactyl-rust-web-egg:nightly"
+    },
+    "file_denylist": [],
+    "startup": ".\/start-modules.sh && {{STARTUP_CMD}}",
+    "config": {
+        "files": "{}",
+        "startup": "{\r\n    \"done\": \"Listening on\"\r\n}",
+        "logs": "{}",
+        "stop": "^C"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!\/bin\/bash\r\n# Rust Web Egg Installation Script\r\napt update\r\napt install -y curl git wget\r\n\r\ncd \/mnt\/server\r\n\r\n# Add VERSION file\r\nwget -q -O - https:\/\/api.tavuru.de\/version\/Ym0T\/pterodactyl-rust-web-egg | grep -o '\"version\":\"[^\"]*\"' | cut -d'\"' -f4 | head -1 > \/mnt\/server\/VERSION\r\n\r\n# Clone the default repository into a temporary directory\r\necho \"[Git] Cloning default repository\"\r\ngit clone https:\/\/github.com\/Ym0T\/pterodactyl-rust-web-egg \/mnt\/server\/gtemp > \/dev\/null 2>&1\r\n\r\n# Copy necessary files\r\ncp -r \/mnt\/server\/gtemp\/modules \/mnt\/server\r\ncp -r \/mnt\/server\/gtemp\/scripts \/mnt\/server\r\ncp \/mnt\/server\/gtemp\/start-modules.sh \/mnt\/server\r\ncp \/mnt\/server\/gtemp\/LICENSE \/mnt\/server\r\nchmod +x \/mnt\/server\/start-modules.sh\r\nfind \/mnt\/server\/modules -type f -name \"*.sh\" -exec chmod +x {} \\;\r\n\r\n# Remove temp directory\r\nrm -rf \/mnt\/server\/gtemp\r\n\r\n# Create necessary directories\r\nmkdir -p logs tmp data bin\r\n\r\n# Clone user repository if GIT_REPO is set\r\nif [ ! -z \"${GIT_REPO}\" ]; then\r\n    echo \"[Git] Cloning user repository: ${GIT_REPO}\"\r\n    git clone ${GIT_REPO} \/mnt\/server\/app > \/dev\/null 2>&1\r\nfi\r\n\r\necho \"[DONE] Installation complete!\"",
+            "container": "debian:bookworm-slim",
+            "entrypoint": "bash"
+        }
+    },
+    "variables": [
+        {
+            "name": "Startup Command",
+            "description": "The command to run your Rust application (e.g., .\/target\/release\/myapp or cargo run --release)",
+            "env_variable": "STARTUP_CMD",
+            "default_value": "cargo run --release",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:255",
+            "field_type": "text"
+        },
+        {
+            "name": "Git Repository",
+            "description": "Git repository URL to clone your Rust project (leave empty to skip)",
+            "env_variable": "GIT_REPO",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Enable Auto-Update",
+            "description": "Automatically check for updates on startup",
+            "env_variable": "AUTOUPDATE_STATUS",
+            "default_value": "1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Force Auto-Update",
+            "description": "Automatically download and apply updates without confirmation",
+            "env_variable": "AUTOUPDATE_FORCE",
+            "default_value": "1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Enable Cloudflare Tunnel",
+            "description": "Set to true to start the Cloudflared tunnel on container startup",
+            "env_variable": "CLOUDFLARED_STATUS",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Cloudflared Tunnel Token",
+            "description": "The authentication token for Cloudflare Tunnel (typically starts with \"ey...\")",
+            "env_variable": "CLOUDFLARED_TOKEN",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Enable LogCleaner Module",
+            "description": "Enable automatic log cleanup on container startup",
+            "env_variable": "LOGCLEANER_STATUS",
+            "default_value": "1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+                {
+            "name": "Rust Log Level",
+            "description": "Rust logging level (error, warn, info, debug, trace)",
+            "env_variable": "RUST_LOG",
+            "default_value": "info",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        }
+    ]
+}

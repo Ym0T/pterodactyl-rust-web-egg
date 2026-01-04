@@ -1,0 +1,209 @@
+# Pterodactyl Rust Web Egg
+
+A Pterodactyl Egg for running Rust web applications with Cloudflare Tunnel support, automatic updates, and log management.
+
+<br>
+
+## Table of Contents
+- [Features](#features)
+- [Installation](#installation)
+- [Auto-Update System](#auto-update-system)
+- [Cloudflared Tunnel Tutorial](#-cloudflared-tunnel-tutorial)
+- [Log Cleaner Module](#log-cleaner-module)
+- [Project Structure](#project-structure)
+- [Notes](#notes)
+- [License](#license)
+
+<br>
+
+## Features
+
+- 🦀 **Rust Toolchain**: Pre-installed Rust with cargo, clippy, and rustfmt
+- 🔄 **Auto-Update**: Automatically checks for and applies updates via Tavuru API
+- 🧹 **LogCleaner**: Cleans `/tmp` and old logs (dry-run supported)
+- 🌐 **Cloudflare Tunnel**: Secure tunnel with token validation
+- 🎯 **Selectable Rust Versions:**
+  - ✅ Stable (recommended)
+  - ✅ Nightly (for experimental features)
+
+<br>
+
+## Installation
+
+1. Download the egg file (`egg-rust-web.json`)
+2. In your Pterodactyl panel, navigate to **Nests** in the sidebar
+3. Import the egg under **Import Egg**
+4. Create a new server and select the **Rust Web Application** egg
+5. Choose the Docker image matching your desired Rust version (stable/nightly)
+6. Fill in all required variables, including your startup command
+
+<br>
+
+## Auto-Update System
+
+The egg includes an intelligent auto-update system that keeps your installation current with the latest features and security updates.
+
+### How it works:
+
+- **Automatic Version Checking**: Uses the Tavuru API to check for new releases
+- **Smart Differential Updates**: Downloads only changed files, not the entire codebase
+- **Selective Updates**: Only updates core system files (modules, scripts)
+- **User Data Protection**: Never touches your application code or user data
+- **Self-Update Capability**: Can safely update its own update mechanism
+
+### Configuration:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AUTOUPDATE_STATUS` | `1` | Enable (`1`) or disable (`0`) auto-update checks |
+| `AUTOUPDATE_FORCE` | `0` | Automatically apply updates (`1`) or just check (`0`) |
+
+### Update Behavior:
+
+#### **Conservative Mode (Default)**
+- `AUTOUPDATE_STATUS=1`, `AUTOUPDATE_FORCE=0`
+- Checks for updates and shows availability
+- Shows version information and changelog
+- Updates must be manually approved
+
+#### **Automatic Mode**
+- `AUTOUPDATE_STATUS=1`, `AUTOUPDATE_FORCE=1`
+- Automatically downloads and applies updates
+- Shows detailed progress during updates
+- Creates backups before applying changes
+
+#### **Disabled Mode**
+- `AUTOUPDATE_STATUS=0`
+- Skips all update operations
+- Useful for production environments requiring manual updates
+
+### Example Output:
+
+```bash
+[AutoUpdate] Current version: v1.0.0
+[AutoUpdate] Latest version: v1.1.0
+[AutoUpdate] Update available: v1.0.0 -> v1.1.0
+[AutoUpdate] Update summary:
+  Total changes: 8
+  Files added: 2
+  Files modified: 5
+  Files removed: 1
+[AutoUpdate] Update completed successfully
+```
+
+### What Gets Updated:
+
+- ✅ **Module scripts** (modules/)
+- ✅ **Core scripts** (start-modules.sh)
+- ✅ **Documentation** (README.md, LICENSE)
+- ❌ **Your Rust application** (app/, src/, Cargo.toml)
+- ❌ **User data** (logs, data, databases)
+
+<br>
+
+## 🚀 Cloudflared Tunnel Tutorial
+
+With **Cloudflared**, you can create a secure tunnel to your server, making it accessible over the internet **without** complicated port forwarding!
+[Cloudflared | Create a remotely-managed tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/create-remote-tunnel/)
+
+### 📌 Requirements
+- A [Cloudflare](https://dash.cloudflare.com/) account
+
+---
+
+- 🔹 **Step 1: Log in to Zero Trust and go to Networks > Tunnel**
+- 🔹 **Step 2: Select Create a tunnel.**
+- 🔹 **Step 3: Choose Cloudflared for the connector type and select Next.**
+- 🔹 **Step 4: Enter a name for your tunnel.**
+- 🔹 **Step 5: Select Save tunnel.**
+- 🔹 **Step 6: Save the token. (The token is very long)**
+
+---
+
+- 🔹 **Step 7: In Pterodactyl, set `CLOUDFLARED_STATUS` to `1`**
+- 🔹 **Step 8: Add your token to `CLOUDFLARED_TOKEN`**
+- 🔹 **Step 9: In Cloudflare, add public hostname**
+- 🔹 **Step 10: Select http and URL "localhost" + your application port (e.g., `localhost:8080`)**
+- 🔹 **Step 11: Restart your server**
+
+Your Rust application is now accessible via your Cloudflare domain!
+
+<br>
+
+## Log Cleaner Module
+
+The LogCleaner module automatically cleans up temporary files and old logs on container startup.
+
+### Configuration:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LOGCLEANER_STATUS` | `1` | Enable (`1`) or disable (`0`) log cleanup |
+| `MAX_SIZE_MB` | `10` | Delete logs larger than this size (MB) |
+| `MAX_AGE_DAYS` | `30` | Delete logs older than this many days |
+
+### What Gets Cleaned:
+
+- `/home/container/tmp/*` - All temporary files
+- `/home/container/logs/*.log` - Logs exceeding size limit
+- `/home/container/logs/*.log` - Logs older than age limit
+
+<br>
+
+## Project Structure
+
+```
+/home/container/
+├── modules/
+│   ├── autoupdate/     # Auto-update module
+│   ├── cloudflared/    # Cloudflare Tunnel module
+│   └── logcleaner/     # Log cleanup module
+├── scripts/            # Custom scripts
+├── logs/               # Application logs
+├── tmp/                # Temporary files
+├── data/               # Persistent data
+├── bin/                # Custom binaries
+├── app/                # Your Rust application (if cloned via GIT_REPO)
+├── .cargo/             # Cargo home
+├── .rustup/            # Rustup home
+├── start-modules.sh    # Module orchestrator
+└── VERSION             # Current version file
+```
+
+<br>
+
+## Environment Variables
+
+### Application Settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `STARTUP_CMD` | `cargo run --release` | Command to start your Rust application |
+| `GIT_REPO` | `` | Git repository URL to clone (optional) |
+| `RUST_LOG` | `info` | Rust logging level (error, warn, info, debug, trace) |
+
+### Module Settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AUTOUPDATE_STATUS` | `1` | Enable auto-update checking |
+| `AUTOUPDATE_FORCE` | `0` | Apply updates automatically |
+| `CLOUDFLARED_STATUS` | `0` | Enable Cloudflare Tunnel |
+| `CLOUDFLARED_TOKEN` | `` | Cloudflare Tunnel token |
+| `LOGCLEANER_STATUS` | `1` | Enable log cleanup |
+
+<br>
+
+## Notes
+
+- Rust toolchain is pre-installed in the container
+- First build may take longer as dependencies are compiled
+- Use `RUST_LOG` environment variable to control logging verbosity
+- Auto-updates are powered by the [Tavuru API](https://api.tavuru.de) for reliable version management
+- For production, consider using pre-compiled binaries instead of `cargo run`
+
+<br>
+
+## License
+
+[GPL-3.0 License](https://choosealicense.com/licenses/gpl-3.0/)
