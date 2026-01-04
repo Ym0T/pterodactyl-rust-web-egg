@@ -459,7 +459,7 @@ apply_update() {
   
   # Apply updates only to allowed directories and files
   local updated_files=0
-  local allowed_dirs=("modules" "nginx" "php")
+  local allowed_dirs=("modules")
   local allowed_files=("start-modules.sh" "README.md" "LICENSE")
   local self_update_required=false
   
