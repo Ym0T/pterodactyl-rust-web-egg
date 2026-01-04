@@ -4,7 +4,7 @@
         "version": "PTDL_v2",
         "update_url": null
     },
-    "exported_at": "2026-01-04T18:00:00+00:00",
+    "exported_at": "2026-01-05T00:46:27+01:00",
     "name": "Rust Web Application",
     "author": "YmoT@tuta.com",
     "description": "Pterodactyl Egg for running Rust web applications with support for Cloudflare Tunnels, automatic updates, and log management.\r\n\r\nFeatures:\r\n- Pre-installed Rust toolchain (stable\/nightly)\r\n- Cloudflare Tunnel support\r\n- Automatic updates with signature verification\r\n- Log cleanup module",
@@ -23,7 +23,7 @@
     },
     "scripts": {
         "installation": {
-            "script": "#!\/bin\/bash\r\n# Rust Web Egg Installation Script\r\napt update\r\napt install -y curl git wget\r\n\r\ncd \/mnt\/server\r\n\r\n# Add VERSION file\r\nwget -q -O - https:\/\/api.tavuru.de\/version\/Ym0T\/pterodactyl-rust-web-egg | grep -o '\"version\":\"[^\"]*\"' | cut -d'\"' -f4 | head -1 > \/mnt\/server\/VERSION\r\n\r\n# Clone the default repository into a temporary directory\r\necho \"[Git] Cloning default repository\"\r\ngit clone https:\/\/github.com\/Ym0T\/pterodactyl-rust-web-egg \/mnt\/server\/gtemp > \/dev\/null 2>&1\r\n\r\n# Copy necessary files\r\ncp -r \/mnt\/server\/gtemp\/modules \/mnt\/server\r\ncp -r \/mnt\/server\/gtemp\/scripts \/mnt\/server\r\ncp \/mnt\/server\/gtemp\/start-modules.sh \/mnt\/server\r\ncp \/mnt\/server\/gtemp\/LICENSE \/mnt\/server\r\nchmod +x \/mnt\/server\/start-modules.sh\r\nfind \/mnt\/server\/modules -type f -name \"*.sh\" -exec chmod +x {} \\;\r\n\r\n# Remove temp directory\r\nrm -rf \/mnt\/server\/gtemp\r\n\r\n# Create necessary directories\r\nmkdir -p logs tmp data bin\r\n\r\n# Clone user repository if GIT_REPO is set\r\nif [ ! -z \"${GIT_REPO}\" ]; then\r\n    echo \"[Git] Cloning user repository: ${GIT_REPO}\"\r\n    git clone ${GIT_REPO} \/mnt\/server\/app > \/dev\/null 2>&1\r\nfi\r\n\r\necho \"[DONE] Installation complete!\"",
+            "script": "#!\/bin\/bash\r\n# Rust Web Egg Installation Script\r\napt update\r\napt install -y curl git wget\r\n\r\ncd \/mnt\/server\r\n\r\n# Add VERSION file\r\nwget -q -O - https:\/\/api.tavuru.de\/version\/Ym0T\/pterodactyl-rust-web-egg | grep -o '\"version\":\"[^\"]*\"' | cut -d'\"' -f4 | head -1 > \/mnt\/server\/VERSION\r\n\r\n# Clone the default repository into a temporary directory\r\necho \"[Git] Cloning default repository\"\r\ngit clone https:\/\/github.com\/Ym0T\/pterodactyl-rust-web-egg \/mnt\/server\/gtemp > \/dev\/null 2>&1\r\n\r\n# Copy necessary files\r\ncp -r \/mnt\/server\/gtemp\/modules \/mnt\/server\r\ncp \/mnt\/server\/gtemp\/start-modules.sh \/mnt\/server\r\ncp \/mnt\/server\/gtemp\/LICENSE \/mnt\/server\r\nchmod +x \/mnt\/server\/start-modules.sh\r\nfind \/mnt\/server\/modules -type f -name \"*.sh\" -exec chmod +x {} \\;\r\n\r\n# Remove temp directory\r\nrm -rf \/mnt\/server\/gtemp\r\n\r\n# Create necessary directories\r\nmkdir -p logs tmp data bin\r\n\r\n# Clone user repository if GIT_REPO is set\r\nif [ ! -z \"${GIT_REPO}\" ]; then\r\n    echo \"[Git] Cloning user repository: ${GIT_REPO}\"\r\n    git clone ${GIT_REPO} \/mnt\/server\/app > \/dev\/null 2>&1\r\nfi\r\n\r\necho \"[DONE] Installation complete!\"",
             "container": "debian:bookworm-slim",
             "entrypoint": "bash"
         }
@@ -99,7 +99,7 @@
             "rules": "required|boolean",
             "field_type": "text"
         },
-                {
+        {
             "name": "Rust Log Level",
             "description": "Rust logging level (error, warn, info, debug, trace)",
             "env_variable": "RUST_LOG",
