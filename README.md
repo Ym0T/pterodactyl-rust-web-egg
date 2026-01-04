@@ -75,6 +75,57 @@ For most production use cases, **stable** is recommended.
 | `LOGCLEANER_STATUS` | `1` | Enable log cleanup |
 | `RUST_LOG` | `info` | Rust logging level (error, warn, info, debug, trace) |
 
+### Using the Pterodactyl Port
+
+Pterodactyl provides the allocated port via the `SERVER_PORT` environment variable. Your Rust application must read this variable to use the correct port.
+
+**Example Implementation:**
+
+```rust
+let port = std::env::var("SERVER_PORT")
+    .unwrap_or_else(|_| "3000".to_string())
+    .parse::<u16>()
+    .expect("SERVER_PORT must be a valid port number");
+
+let addr = format!("0.0.0.0:{}", port);
+```
+
+**With Axum:**
+
+```rust
+use axum::Router;
+use tokio::net::TcpListener;
+
+#[tokio::main]
+async fn main() {
+    let port = std::env::var("SERVER_PORT").unwrap_or_else(|_| "3000".into());
+    let addr = format!("0.0.0.0:{}", port);
+
+    let app = Router::new();
+    let listener = TcpListener::bind(&addr).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}
+```
+
+**With Actix-web:**
+
+```rust
+use actix_web::{App, HttpServer};
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    let port: u16 = std::env::var("SERVER_PORT")
+        .unwrap_or_else(|_| "3000".into())
+        .parse()
+        .expect("Invalid port");
+
+    HttpServer::new(|| App::new())
+        .bind(("0.0.0.0", port))?
+        .run()
+        .await
+}
+```
+
 <br>
 
 ## Auto-Update System
