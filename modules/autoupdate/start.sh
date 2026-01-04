@@ -19,7 +19,7 @@ NC='\033[0m'
 # This key is embedded in the script to prevent tampering
 # Generate new keypair: Run API with SIGNING_PRIVATE_KEY not set, then generate
 # PUBLIC_KEY_BASE64="YOUR_PUBLIC_KEY_HERE"
-PUBLIC_KEY_BASE64="c0VMcVfyHk9lpB3K9K+AaDMGr7QicHSGBDfiZO6tD6M="
+PUBLIC_KEY_BASE64="5MpxNNMkROJLixsSTk/PDBAFRF3bP+zr3U0lzzK/py4="
 
 # Verify signature of downloaded update
 # Usage: verify_signature <file_path> <signature_base64> <expected_hash>
@@ -31,30 +31,30 @@ verify_signature() {
 
     # Skip verification if no public key is configured
     if [[ -z "$PUBLIC_KEY_BASE64" ]]; then
-        echo -e "${YELLOW}[AutoUpdate] Signature verification skipped - no public key configured${NC}"
+        echo -e "${YELLOW}[AutoUpdate] ⚠ Signature verification skipped - no public key configured${NC}"
         return 0
     fi
 
     # Check if openssl is available
     if ! command -v openssl >/dev/null 2>&1; then
-        echo -e "${YELLOW}[AutoUpdate] Signature verification skipped - openssl not available${NC}"
+        echo -e "${YELLOW}[AutoUpdate] ⚠ Signature verification skipped - openssl not available${NC}"
         return 0
     fi
 
-    echo -e "${CYAN}[AutoUpdate] Verifying cryptographic signature...${NC}"
+    echo -e "${CYAN}[AutoUpdate] 🔐 Verifying cryptographic signature...${NC}"
 
     # Verify file hash first
     local actual_hash
     actual_hash=$(sha256sum "$file_path" | cut -d' ' -f1)
 
     if [[ "$actual_hash" != "$expected_hash" ]]; then
-        echo -e "${RED}[AutoUpdate] Hash mismatch!${NC}"
+        echo -e "${RED}[AutoUpdate] ✗ Hash mismatch!${NC}"
         echo -e "${RED}[AutoUpdate]   Expected: $expected_hash${NC}"
         echo -e "${RED}[AutoUpdate]   Actual:   $actual_hash${NC}"
         return 1
     fi
 
-    echo -e "${GREEN}[AutoUpdate] Hash verified: ${actual_hash:0:16}...${NC}"
+    echo -e "${GREEN}[AutoUpdate] ✓ Hash verified: ${actual_hash:0:16}...${NC}"
 
     # Decode public key and signature to temp files
     local temp_dir
@@ -74,22 +74,33 @@ verify_signature() {
 
     # Decode signature from base64
     echo "$signature_b64" | base64 -d > "$sig_file" 2>/dev/null || {
-        echo -e "${RED}[AutoUpdate] Failed to decode signature${NC}"
+        echo -e "${RED}[AutoUpdate] ✗ Failed to decode signature${NC}"
         rm -rf "$temp_dir"
         return 1
     }
 
     # Create hash file (the signature is over the hash, not the file directly)
-    echo -n "$expected_hash" | xxd -r -p > "$hash_file"
+    # Convert hex to binary - use xxd if available, otherwise use printf
+    if command -v xxd >/dev/null 2>&1; then
+        echo -n "$expected_hash" | xxd -r -p > "$hash_file"
+    else
+        # Fallback: convert hex to binary using printf
+        local hex="$expected_hash"
+        local i
+        > "$hash_file"  # Create empty file
+        for ((i=0; i<${#hex}; i+=2)); do
+            printf "\x${hex:$i:2}" >> "$hash_file"
+        done
+    fi
 
     # Verify signature using openssl (Ed25519)
     if openssl pkeyutl -verify -pubin -inkey "$pub_key_file" \
         -sigfile "$sig_file" -in "$hash_file" -rawin 2>/dev/null; then
-        echo -e "${GREEN}[AutoUpdate] Signature verified - update is authentic${NC}"
+        echo -e "${GREEN}[AutoUpdate] ✓ Signature verified - update is authentic${NC}"
         rm -rf "$temp_dir"
         return 0
     else
-        echo -e "${RED}[AutoUpdate] Signature verification FAILED!${NC}"
+        echo -e "${RED}[AutoUpdate] ✗ Signature verification FAILED!${NC}"
         echo -e "${RED}[AutoUpdate]   The update may have been tampered with.${NC}"
         echo -e "${RED}[AutoUpdate]   Update will NOT be applied for security reasons.${NC}"
         rm -rf "$temp_dir"
@@ -105,7 +116,7 @@ header() {
 
 # Configuration via environment variables
 AUTOUPDATE_STATUS="${AUTOUPDATE_STATUS:-true}"
-AUTOUPDATE_FORCE="${AUTOUPDATE_FORCE:-true}"
+AUTOUPDATE_FORCE="${AUTOUPDATE_FORCE:-false}"
 VERSION_FILE="/home/container/VERSION"
 API_BASE_URL="https://api.tavuru.de"
 REPO_OWNER="Ym0T"
@@ -116,25 +127,25 @@ TEMP_DIR="/home/container/tmp/autoupdate"
 # Check for staged self-update
 check_staged_update() {
   local staging_dir="${CONTAINER_ROOT}/.autoupdate_staged"
-
+  
   if [[ -d "$staging_dir/autoupdate" ]]; then
-    echo -e "${YELLOW}[AutoUpdate] Staged self-update detected${NC}"
+    echo -e "${YELLOW}[AutoUpdate] 🔄  Staged self-update detected${NC}"
     echo -e "${CYAN}[AutoUpdate] Applying staged auto-update module...${NC}"
-
+    
     # Backup current autoupdate module
     local backup_dir="${CONTAINER_ROOT}/.autoupdate_backup_$(date +%s)"
     mkdir -p "$backup_dir"
     cp -r "${CONTAINER_ROOT}/modules/autoupdate" "$backup_dir/" 2>/dev/null || true
-
+    
     # Apply staged update
     if cp -r "$staging_dir/autoupdate" "${CONTAINER_ROOT}/modules/" 2>/dev/null; then
       chmod +x "${CONTAINER_ROOT}/modules/autoupdate/start.sh" 2>/dev/null || true
-      echo -e "${GREEN}[AutoUpdate] Self-update applied successfully${NC}"
+      echo -e "${GREEN}[AutoUpdate] ✓ Self-update applied successfully${NC}"
       echo -e "${CYAN}[AutoUpdate] Backup saved to: $backup_dir${NC}"
-
+      
       # Clean up staging
       rm -rf "$staging_dir" 2>/dev/null || true
-
+      
       echo -e "${BOLD_BLUE}[AutoUpdate] Now running updated auto-update module${NC}"
     else
       echo -e "${RED}[AutoUpdate] Failed to apply staged update${NC}"
@@ -170,7 +181,7 @@ get_current_version() {
       return 0
     fi
   fi
-
+  
   echo "unknown"
 }
 
@@ -179,10 +190,10 @@ get_latest_version() {
   local api_url="${API_BASE_URL}/version/${REPO_OWNER}/${REPO_NAME}"
   echo -e "${WHITE}[AutoUpdate] Fetching latest version from API...${NC}"
   echo -e "${CYAN}[AutoUpdate] API URL: ${api_url}${NC}"
-
+  
   local response
   local temp_file="${TEMP_DIR}/api_response.json"
-
+  
   # Try to get response using wget
   if command -v wget >/dev/null 2>&1; then
     if wget --timeout=30 --tries=2 -q -O "$temp_file" "$api_url" 2>/dev/null; then
@@ -210,18 +221,18 @@ get_latest_version() {
     echo -e "${RED}[AutoUpdate] Neither wget nor curl available${NC}"
     return 1
   fi
-
+  
   if [[ -z "$response" ]]; then
     echo -e "${RED}[AutoUpdate] Empty response from API${NC}"
     return 1
   fi
-
+  
   echo -e "${CYAN}[AutoUpdate] Raw API response: ${response:0:200}...${NC}"
-
+  
   # Extract version using basic text processing
   local version
   version=$(echo "$response" | grep -o '"version":"[^"]*"' | cut -d'"' -f4 | head -1)
-
+  
   if [[ -z "$version" ]]; then
     echo -e "${YELLOW}[AutoUpdate] Trying alternative parsing...${NC}"
     version=$(echo "$response" | grep -o '"version": *"[^"]*"' | cut -d'"' -f4 | head -1)
@@ -229,10 +240,10 @@ get_latest_version() {
       version=$(echo "$response" | grep -o 'v[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1)
     fi
   fi
-
+  
   # Clean up temp file
   rm -f "$temp_file"
-
+  
   if [[ -n "$version" ]]; then
     echo -e "${GREEN}[AutoUpdate] Parsed version: ${version}${NC}"
     echo "$version"
@@ -247,41 +258,41 @@ get_latest_version() {
 version_compare() {
   local current="$1"
   local latest="$2"
-
+  
   # Convert to lowercase for case-insensitive comparison
   current=$(echo "$current" | tr '[:upper:]' '[:lower:]')
   latest=$(echo "$latest" | tr '[:upper:]' '[:lower:]')
-
+  
   # Remove 'v' prefix if present
   current="${current#v}"
   latest="${latest#v}"
-
+  
   # Handle exact match
   if [[ "$current" == "$latest" ]]; then
     return 0  # Equal
   fi
-
+  
   # Split versions into arrays (major.minor.patch)
   IFS='.' read -ra current_parts <<< "$current"
   IFS='.' read -ra latest_parts <<< "$latest"
-
+  
   # Pad arrays to same length (fill missing parts with 0)
   local max_length=$(( ${#current_parts[@]} > ${#latest_parts[@]} ? ${#current_parts[@]} : ${#latest_parts[@]} ))
-
+  
   # Ensure we have at least 3 parts for comparison
   while [[ ${#current_parts[@]} -lt $max_length ]] || [[ ${#current_parts[@]} -lt 3 ]]; do
     current_parts+=("0")
   done
-
+  
   while [[ ${#latest_parts[@]} -lt $max_length ]] || [[ ${#latest_parts[@]} -lt 3 ]]; do
     latest_parts+=("0")
   done
-
+  
   # Compare each version component numerically
   for i in $(seq 0 $((max_length - 1))); do
     local current_part="${current_parts[$i]:-0}"
     local latest_part="${latest_parts[$i]:-0}"
-
+    
     # Remove leading zeros and ensure numeric comparison
     # Handle non-numeric parts by defaulting to 0
     if [[ "$current_part" =~ ^[0-9]+$ ]]; then
@@ -289,13 +300,13 @@ version_compare() {
     else
       current_part=0
     fi
-
+    
     if [[ "$latest_part" =~ ^[0-9]+$ ]]; then
       latest_part=$((10#$latest_part))
     else
       latest_part=0
     fi
-
+    
     if [[ $current_part -lt $latest_part ]]; then
       return 1  # Current is older
     elif [[ $current_part -gt $latest_part ]]; then
@@ -303,7 +314,7 @@ version_compare() {
     fi
     # If equal, continue to next component
   done
-
+  
   # All components are equal
   return 0
 }
@@ -311,7 +322,7 @@ version_compare() {
 # Function to safely create or update version file
 update_version_file() {
   local new_version="$1"
-
+  
   if printf "%s\n" "$new_version" > "$VERSION_FILE" 2>/dev/null; then
     echo -e "${GREEN}[AutoUpdate] Version file updated to ${new_version}${NC}"
   else
@@ -323,14 +334,14 @@ update_version_file() {
 apply_update() {
   local from_version="$1"
   local to_version="$2"
-
+  
   echo -e "${CYAN}[AutoUpdate] Downloading update from ${from_version} to ${to_version}...${NC}"
-
+  
   # Get diff information with ZIP generation
   local diff_url="${API_BASE_URL}/diff/${REPO_OWNER}/${REPO_NAME}/${from_version}/${to_version}?zip=true"
   local diff_response
   local temp_diff_file="${TEMP_DIR}/diff_response.json"
-
+  
   # Download diff information using wget
   if command -v wget >/dev/null 2>&1; then
     if ! wget --timeout=60 --tries=2 -q -O "$temp_diff_file" "$diff_url" 2>/dev/null; then
@@ -345,13 +356,13 @@ apply_update() {
     echo -e "${RED}[AutoUpdate] No download tool available (wget/curl)${NC}"
     return 1
   fi
-
+  
   if [[ -z "$diff_response" ]]; then
     echo -e "${RED}[AutoUpdate] Empty diff response${NC}"
     rm -f "$temp_diff_file"
     return 1
   fi
-
+  
   # Extract download URL from response
   local download_url
   download_url=$(echo "$diff_response" | grep -o '"download_url":"[^"]*"' | cut -d'"' -f4)
@@ -368,9 +379,9 @@ apply_update() {
   checksum=$(echo "$diff_response" | grep -o '"checksum":"[^"]*"' | cut -d'"' -f4 || echo "")
 
   if [[ -n "$signature" && -n "$checksum" ]]; then
-    echo -e "${CYAN}[AutoUpdate] Signed update detected${NC}"
+    echo -e "${CYAN}[AutoUpdate] 🔐 Signed update detected${NC}"
   elif [[ -n "$PUBLIC_KEY_BASE64" ]]; then
-    echo -e "${YELLOW}[AutoUpdate] Update is unsigned but signature verification is enabled${NC}"
+    echo -e "${YELLOW}[AutoUpdate] ⚠ Update is unsigned but signature verification is enabled${NC}"
   fi
 
   # Extract file change information for logging
@@ -379,17 +390,17 @@ apply_update() {
   files_added=$(echo "$diff_response" | grep -o '"files_added":[0-9]*' | cut -d':' -f2)
   files_modified=$(echo "$diff_response" | grep -o '"files_modified":[0-9]*' | cut -d':' -f2)
   files_removed=$(echo "$diff_response" | grep -o '"files_removed":[0-9]*' | cut -d':' -f2)
-
+  
   echo -e "${WHITE}[AutoUpdate] Update summary:${NC}"
-  echo -e "${MAGENTA}  Total changes: ${total_changes:-0}${NC}"
-  echo -e "${MAGENTA}  Files added: ${files_added:-0}${NC}"
-  echo -e "${MAGENTA}  Files modified: ${files_modified:-0}${NC}"
-  echo -e "${MAGENTA}  Files removed: ${files_removed:-0}${NC}"
-
+  echo -e "${MAGENTA}  • Total changes: ${total_changes:-0}${NC}"
+  echo -e "${MAGENTA}  • Files added: ${files_added:-0}${NC}"
+  echo -e "${MAGENTA}  • Files modified: ${files_modified:-0}${NC}"
+  echo -e "${MAGENTA}  • Files removed: ${files_removed:-0}${NC}"
+  
   # Download the diff ZIP file
   local zip_file="${TEMP_DIR}/update.zip"
   echo -e "${WHITE}[AutoUpdate] Downloading update package...${NC}"
-
+  
   if command -v wget >/dev/null 2>&1; then
     if ! wget --timeout=120 --tries=2 -q -O "$zip_file" "$download_url" 2>/dev/null; then
       echo -e "${RED}[AutoUpdate] Failed to download update package with wget${NC}"
@@ -407,10 +418,10 @@ apply_update() {
     rm -f "$temp_diff_file"
     return 1
   fi
-
+  
   # Clean up diff response file
   rm -f "$temp_diff_file"
-
+  
   # Verify ZIP file was downloaded
   if [[ ! -f "$zip_file" ]] || [[ ! -s "$zip_file" ]]; then
     echo -e "${RED}[AutoUpdate] Downloaded file is empty or missing${NC}"
@@ -421,46 +432,50 @@ apply_update() {
   # Verify signature if available
   if [[ -n "$signature" && -n "$checksum" ]]; then
     if ! verify_signature "$zip_file" "$signature" "$checksum"; then
-      echo -e "${RED}[AutoUpdate] Signature verification failed - aborting update${NC}"
+      echo -e "${RED}[AutoUpdate] ✗ Signature verification failed - aborting update${NC}"
       rm -f "$zip_file" "$temp_diff_file"
       return 1
     fi
-  elif [[ -n "$PUBLIC_KEY_BASE64" ]]; then
-    # Public key is configured but update is unsigned - warn but continue for now
-    echo -e "${YELLOW}[AutoUpdate] Proceeding with unsigned update (signature verification configured but update not signed)${NC}"
+  elif [[ -n "$PUBLIC_KEY_BASE64" && "$PUBLIC_KEY_BASE64" != "YOUR_PUBLIC_KEY_HERE" ]]; then
+    # Public key is configured but update is unsigned - reject for security
+    echo -e "${RED}[AutoUpdate] ✗ Update is unsigned but signature verification is required${NC}"
+    echo -e "${RED}[AutoUpdate] ✗ Aborting update for security reasons${NC}"
+    echo -e "${YELLOW}[AutoUpdate] To allow unsigned updates, remove or comment out PUBLIC_KEY_BASE64${NC}"
+    rm -f "$zip_file" "$temp_diff_file"
+    return 1
   fi
 
   echo -e "${WHITE}[AutoUpdate] Extracting and applying updates...${NC}"
-
+  
   # Extract to temporary directory
   local extract_dir="${TEMP_DIR}/extracted"
   mkdir -p "$extract_dir"
-
+  
   if ! unzip -q "$zip_file" -d "$extract_dir" 2>/dev/null; then
     echo -e "${RED}[AutoUpdate] Failed to extract update package${NC}"
     rm -f "$zip_file"
     return 1
   fi
-
+  
   # Apply updates only to allowed directories and files
   local updated_files=0
-  local allowed_dirs=("modules" "scripts")
+  local allowed_dirs=("modules" "nginx" "php")
   local allowed_files=("start-modules.sh" "README.md" "LICENSE")
   local self_update_required=false
-
+  
   # Check if autoupdate module itself needs updating
   if [[ -f "${extract_dir}/modules/autoupdate/start.sh" ]]; then
-    echo -e "${YELLOW}[AutoUpdate] Auto-update module itself has updates${NC}"
+    echo -e "${YELLOW}[AutoUpdate] ⚠ Auto-update module itself has updates${NC}"
     echo -e "${CYAN}[AutoUpdate] Self-update will be applied after server restart${NC}"
     self_update_required=true
   fi
-
+  
   # Update allowed directories (skip autoupdate if it needs self-update)
   for dir in "${allowed_dirs[@]}"; do
     if [[ -d "${extract_dir}/${dir}" ]]; then
       if [[ "$dir" == "modules" && "$self_update_required" == "true" ]]; then
         echo -e "${CYAN}[AutoUpdate] Updating directory: ${dir} (excluding autoupdate)${NC}"
-
+        
         # Copy all module directories except autoupdate
         for module_subdir in "${extract_dir}/${dir}"/*; do
           if [[ -d "$module_subdir" ]]; then
@@ -472,7 +487,7 @@ apply_update() {
             fi
           fi
         done
-
+        
         # Stage autoupdate for next restart in protected location
         local staging_dir="${CONTAINER_ROOT}/.autoupdate_staged"
         mkdir -p "$staging_dir"
@@ -480,7 +495,7 @@ apply_update() {
         chmod +x "$staging_dir/autoupdate/start.sh" 2>/dev/null || true
         echo "$(date): Auto-update module staged for next restart" > "$staging_dir/.staging_info"
         echo -e "${YELLOW}[AutoUpdate] Auto-update module staged for next restart${NC}"
-
+        
       else
         echo -e "${CYAN}[AutoUpdate] Updating directory: ${dir}${NC}"
         cp -r "${extract_dir}/${dir}/"* "${CONTAINER_ROOT}/${dir}/" 2>/dev/null || true
@@ -489,7 +504,7 @@ apply_update() {
       updated_files=$((updated_files + 1))
     fi
   done
-
+  
   # Update allowed files
   for file in "${allowed_files[@]}"; do
     if [[ -f "${extract_dir}/${file}" ]]; then
@@ -501,25 +516,25 @@ apply_update() {
       updated_files=$((updated_files + 1))
     fi
   done
-
+  
   # Clean up temporary files
   rm -rf "$extract_dir" "$zip_file"
-
+  
   if [[ $updated_files -gt 0 ]]; then
     echo -e "${GREEN}[AutoUpdate] Successfully updated ${updated_files} components${NC}"
-
+    
     # Update version file
     update_version_file "$to_version"
-
+    
     # Show self-update notice if applicable
     if [[ "$self_update_required" == "true" ]]; then
       echo -e " "
-      echo -e "${BOLD_BLUE}[AutoUpdate] IMPORTANT NOTICE:${NC}"
+      echo -e "${BOLD_BLUE}[AutoUpdate] 🔄  IMPORTANT NOTICE:${NC}"
       echo -e "${YELLOW}[AutoUpdate] The auto-update module itself has been updated${NC}"
       echo -e "${YELLOW}[AutoUpdate] Changes will take effect on next server restart${NC}"
       echo -e "${CYAN}[AutoUpdate] Staged location: /home/container/.autoupdate_staged${NC}"
     fi
-
+    
     return 0
   else
     echo -e "${YELLOW}[AutoUpdate] No applicable updates found${NC}"
@@ -531,15 +546,15 @@ apply_update() {
 main() {
   local current_version
   local latest_version
-
+  
   # Get current version
   current_version=$(get_current_version)
   echo -e "${WHITE}[AutoUpdate] Current version: ${current_version}${NC}"
-
+  
   # Test basic connectivity first using wget
   echo -e "${CYAN}[AutoUpdate] Testing connectivity to ${API_BASE_URL}...${NC}"
   local temp_health_file="${TEMP_DIR}/health_check.tmp"
-
+  
   if command -v wget >/dev/null 2>&1; then
     if wget --timeout=10 --tries=1 -q -O "$temp_health_file" "${API_BASE_URL}/health" 2>/dev/null; then
       echo -e "${GREEN}[AutoUpdate] API connectivity OK (wget)${NC}"
@@ -558,50 +573,50 @@ main() {
     echo -e "${YELLOW}[AutoUpdate] Skipping update check${NC}"
     return 0
   fi
-
+  
   # Get latest version from API
   if ! latest_version=$(get_latest_version | tail -n 1); then
     echo -e "${YELLOW}[AutoUpdate] Could not fetch latest version from API${NC}"
     echo -e "${CYAN}[AutoUpdate] This could be due to:${NC}"
-    echo -e "${CYAN}  Network connectivity issues${NC}"
-    echo -e "${CYAN}  API server temporarily unavailable${NC}"
-    echo -e "${CYAN}  Repository not found: ${REPO_OWNER}/${REPO_NAME}${NC}"
-    echo -e "${CYAN}  API response format changed${NC}"
+    echo -e "${CYAN}  • Network connectivity issues${NC}"
+    echo -e "${CYAN}  • API server temporarily unavailable${NC}"
+    echo -e "${CYAN}  • Repository not found: ${REPO_OWNER}/${REPO_NAME}${NC}"
+    echo -e "${CYAN}  • API response format changed${NC}"
     echo -e "${YELLOW}[AutoUpdate] Skipping update check${NC}"
     return 0
   fi
-
+  
   if [[ -z "$latest_version" ]]; then
     echo -e "${YELLOW}[AutoUpdate] Could not determine latest version, skipping update${NC}"
     return 0
   fi
-
+  
   echo -e "${WHITE}[AutoUpdate] Latest version: ${latest_version}${NC}"
-
+  
   # If current version is unknown, just save the latest version and continue
   if [[ "$current_version" == "unknown" ]]; then
     echo -e "${CYAN}[AutoUpdate] No version information found, saving current latest version${NC}"
     update_version_file "$latest_version"
-    echo -e "${GREEN}[AutoUpdate] Version tracking initialized with ${latest_version}${NC}"
+    echo -e "${GREEN}[AutoUpdate] ✓ Version tracking initialized with ${latest_version}${NC}"
     return 0
   fi
-
+  
   # Compare versions
   if version_compare "$current_version" "$latest_version"; then
-    echo -e "${GREEN}[AutoUpdate] You are running the newest version${NC}"
+    echo -e "${GREEN}[AutoUpdate] ✓ You are running the newest version${NC}"
     return 0
   elif [[ $? -eq 1 ]]; then
-    echo -e "${YELLOW}[AutoUpdate] Update available: ${current_version} -> ${latest_version}${NC}"
-
+    echo -e "${YELLOW}[AutoUpdate] ⚠ Update available: ${current_version} → ${latest_version}${NC}"
+    
     # Check if we should force update
     if enabled "$AUTOUPDATE_FORCE"; then
       header "Applying Update"
-
+      
       if apply_update "$current_version" "$latest_version"; then
-        echo -e "${GREEN}[AutoUpdate] Update completed successfully${NC}"
+        echo -e "${GREEN}[AutoUpdate] ✓ Update completed successfully${NC}"
         echo -e "${CYAN}[AutoUpdate] Server will continue with new version${NC}"
       else
-        echo -e "${YELLOW}[AutoUpdate] Update failed, continuing with current version${NC}"
+        echo -e "${YELLOW}[AutoUpdate] ⚠ Update failed, continuing with current version${NC}"
       fi
     else
       echo -e "${CYAN}[AutoUpdate] Auto-update is enabled but force update is disabled${NC}"
