@@ -6,7 +6,9 @@ A Pterodactyl Egg for running Rust web applications with Cloudflare Tunnel suppo
 
 ## Table of Contents
 - [Features](#features)
+- [Docker Images](#docker-images)
 - [Installation](#installation)
+- [Environment Variables](#environment-variables)
 - [Auto-Update System](#auto-update-system)
 - [Cloudflared Tunnel Tutorial](#-cloudflared-tunnel-tutorial)
 - [Log Cleaner Module](#log-cleaner-module)
@@ -20,22 +22,58 @@ A Pterodactyl Egg for running Rust web applications with Cloudflare Tunnel suppo
 
 - 🦀 **Rust Toolchain**: Pre-installed Rust with cargo, clippy, and rustfmt
 - 🔄 **Auto-Update**: Automatically checks for and applies updates via Tavuru API
-- 🧹 **LogCleaner**: Cleans `/tmp` and old logs (dry-run supported)
+- 🧹 **LogCleaner**: Cleans `/tmp` and old logs on startup
 - 🌐 **Cloudflare Tunnel**: Secure tunnel with token validation
-- 🎯 **Selectable Rust Versions:**
-  - ✅ Stable (recommended)
-  - ✅ Nightly (for experimental features)
+
+<br>
+
+## Docker Images
+
+| Image | Description |
+|-------|-------------|
+| `ghcr.io/ym0t/pterodactyl-rust-web-egg:stable` | **Recommended** - Stable Rust toolchain. Well-tested, reliable, 6-week release cycle. Best for production. |
+| `ghcr.io/ym0t/pterodactyl-rust-web-egg:nightly` | Bleeding-edge Rust with latest features. Updated daily. Use for experimental features like unstable APIs. |
+
+### When to use Nightly?
+- You need features behind `#![feature(...)]` flags
+- You want the latest performance improvements
+- You're developing libraries that need to test against nightly
+- You're experimenting with upcoming Rust features
+
+For most production use cases, **stable** is recommended.
 
 <br>
 
 ## Installation
 
-1. Download the egg file (`egg-rust-web.json`)
+1. Download the egg file (`pterodactyl-egg-rust-web.json`)
 2. In your Pterodactyl panel, navigate to **Nests** in the sidebar
 3. Import the egg under **Import Egg**
 4. Create a new server and select the **Rust Web Application** egg
 5. Choose the Docker image matching your desired Rust version (stable/nightly)
 6. Fill in all required variables, including your startup command
+
+<br>
+
+## Environment Variables
+
+### Application Settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `STARTUP_CMD` | `cargo run --release` | Command to start your Rust application |
+| `GIT_REPO` | `` | Git repository URL to clone (optional) |
+
+### Module Settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AUTOUPDATE_STATUS` | `1` | Enable auto-update checking |
+| `AUTOUPDATE_FORCE` | `1` | Apply updates automatically (enabled by default) |
+| `CLOUDFLARED_STATUS` | `0` | Enable Cloudflare Tunnel |
+| `CLOUDFLARED_TOKEN` | `` | Cloudflare Tunnel token |
+| `LOGCLEANER_STATUS` | `1` | Enable log cleanup |
+| `RUST_LOG` | `info` | Rust logging level (error, warn, info, debug, trace) |
 
 <br>
 
@@ -51,26 +89,19 @@ The egg includes an intelligent auto-update system that keeps your installation 
 - **User Data Protection**: Never touches your application code or user data
 - **Self-Update Capability**: Can safely update its own update mechanism
 
-### Configuration:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AUTOUPDATE_STATUS` | `1` | Enable (`1`) or disable (`0`) auto-update checks |
-| `AUTOUPDATE_FORCE` | `0` | Automatically apply updates (`1`) or just check (`0`) |
-
 ### Update Behavior:
 
-#### **Conservative Mode (Default)**
+#### **Automatic Mode (Default)**
+- `AUTOUPDATE_STATUS=1`, `AUTOUPDATE_FORCE=1`
+- Automatically downloads and applies updates on startup
+- Shows detailed progress during updates
+- Creates backups before applying changes
+
+#### **Conservative Mode**
 - `AUTOUPDATE_STATUS=1`, `AUTOUPDATE_FORCE=0`
 - Checks for updates and shows availability
 - Shows version information and changelog
 - Updates must be manually approved
-
-#### **Automatic Mode**
-- `AUTOUPDATE_STATUS=1`, `AUTOUPDATE_FORCE=1`
-- Automatically downloads and applies updates
-- Shows detailed progress during updates
-- Creates backups before applying changes
 
 #### **Disabled Mode**
 - `AUTOUPDATE_STATUS=0`
@@ -164,39 +195,19 @@ The LogCleaner module automatically cleans up temporary files and old logs on co
 ├── data/               # Persistent data
 ├── bin/                # Custom binaries
 ├── app/                # Your Rust application (if cloned via GIT_REPO)
-├── .cargo/             # Cargo home
-├── .rustup/            # Rustup home
+├── .cargo/             # Cargo registry and cache
 ├── start-modules.sh    # Module orchestrator
 └── VERSION             # Current version file
 ```
 
-<br>
-
-## Environment Variables
-
-### Application Settings
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `STARTUP_CMD` | `cargo run --release` | Command to start your Rust application |
-| `GIT_REPO` | `` | Git repository URL to clone (optional) |
-| `RUST_LOG` | `info` | Rust logging level (error, warn, info, debug, trace) |
-
-### Module Settings
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AUTOUPDATE_STATUS` | `1` | Enable auto-update checking |
-| `AUTOUPDATE_FORCE` | `0` | Apply updates automatically |
-| `CLOUDFLARED_STATUS` | `0` | Enable Cloudflare Tunnel |
-| `CLOUDFLARED_TOKEN` | `` | Cloudflare Tunnel token |
-| `LOGCLEANER_STATUS` | `1` | Enable log cleanup |
+**Note**: Rust toolchain binaries (cargo, rustc, rustup) are installed in `/opt/rust/` and available system-wide.
 
 <br>
 
 ## Notes
 
-- Rust toolchain is pre-installed in the container
+- Rust toolchain is pre-installed in the container at `/opt/rust/`
+- Cargo cache and registry are stored in `/home/container/.cargo/`
 - First build may take longer as dependencies are compiled
 - Use `RUST_LOG` environment variable to control logging verbosity
 - Auto-updates are powered by the [Tavuru API](https://api.tavuru.de) for reliable version management
