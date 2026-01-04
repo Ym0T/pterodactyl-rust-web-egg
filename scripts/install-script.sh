@@ -14,7 +14,6 @@ git clone https://github.com/Ym0T/pterodactyl-rust-web-egg /mnt/server/gtemp > /
 
 # Copy necessary files
 cp -r /mnt/server/gtemp/modules /mnt/server
-cp -r /mnt/server/gtemp/scripts /mnt/server
 cp /mnt/server/gtemp/start-modules.sh /mnt/server
 cp /mnt/server/gtemp/LICENSE /mnt/server
 chmod +x /mnt/server/start-modules.sh
