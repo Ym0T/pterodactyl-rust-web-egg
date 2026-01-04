@@ -17,9 +17,9 @@
     "startup": ".\/start-modules.sh && {{STARTUP_CMD}}",
     "config": {
         "files": "{}",
-        "startup": "{\r\n    \"done\": \"Listening on\"\r\n}",
+        "startup": "{\r\n    \"done\": \"target\/release\/\"\r\n}",
         "logs": "{}",
-        "stop": "^C"
+        "stop": "^C && ^C"
     },
     "scripts": {
         "installation": {
