@@ -105,7 +105,7 @@ header() {
 
 # Configuration via environment variables
 AUTOUPDATE_STATUS="${AUTOUPDATE_STATUS:-true}"
-AUTOUPDATE_FORCE="${AUTOUPDATE_FORCE:-false}"
+AUTOUPDATE_FORCE="${AUTOUPDATE_FORCE:-true}"
 VERSION_FILE="/home/container/VERSION"
 API_BASE_URL="https://api.tavuru.de"
 REPO_OWNER="Ym0T"
