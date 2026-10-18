@@ -42,10 +42,17 @@ if is_enabled "$AUTOUPDATE_STATUS" && [[ -f "modules/autoupdate/start.sh" ]]; th
   modules/autoupdate/start.sh
 fi
 
-# 3) Execute other modules (except autoupdate and logcleaner)
+# 3) Run git before the other modules so they and the app use the freshly pulled code
+GIT_STATUS="${GIT_STATUS:-false}"
+if is_enabled "$GIT_STATUS" && [[ -x "modules/git/start.sh" ]]; then
+  header "Running module: git"
+  modules/git/start.sh
+fi
+
+# 4) Execute other modules (except autoupdate, logcleaner and git)
 for module_dir in modules/*/; do
   module_name=$(basename "$module_dir")
-  [[ "$module_name" == "autoupdate" || "$module_name" == "logcleaner" ]] && continue
+  [[ "$module_name" =~ ^(autoupdate|logcleaner|git)$ ]] && continue
   start_script="${module_dir}start.sh"
   status_var="${module_name^^}_STATUS"
   status="${!status_var:-false}"

@@ -7,7 +7,7 @@
     "exported_at": "2026-01-05T00:46:27+01:00",
     "name": "Rust Web Application",
     "author": "YmoT@tuta.com",
-    "description": "Pterodactyl Egg for running Rust web applications with support for Cloudflare Tunnels, automatic updates, and log management.\r\n\r\nFeatures:\r\n- Pre-installed Rust toolchain (stable\/nightly)\r\n- Cloudflare Tunnel support\r\n- Automatic updates with signature verification\r\n- Log cleanup module",
+    "description": "Pterodactyl Egg for running Rust web applications with Git deployment, cron jobs, Let's Encrypt certificates, Cloudflare Tunnels, signed automatic updates and log management.\r\n\r\nFeatures:\r\n- Pre-installed Rust toolchain (stable\/nightly)\r\n- Git module: clone your app on install and pull it on every start\r\n- Cron jobs with a built-in cron engine\r\n- SSL certificates via Certbot (DNS-01)\r\n- Cloudflare Tunnel support\r\n- Automatic updates with signed manifests\r\n- Log cleanup module",
     "features": null,
     "docker_images": {
         "ghcr.io\/ym0t\/pterodactyl-rust-web-egg:stable": "ghcr.io\/ym0t\/pterodactyl-rust-web-egg:stable",
@@ -23,7 +23,7 @@
     },
     "scripts": {
         "installation": {
-            "script": "#!\/bin\/bash\r\n# Rust Web Egg Installation Script\r\napt update\r\napt install -y curl git wget\r\n\r\ncd \/mnt\/server\r\n\r\n# Add VERSION file\r\nwget -q -O - https:\/\/api.tavuru.de\/version\/Ym0T\/pterodactyl-rust-web-egg | grep -o '\"version\":\"[^\"]*\"' | cut -d'\"' -f4 | head -1 > \/mnt\/server\/VERSION\r\n\r\n# Clone the default repository into a temporary directory\r\necho \"[Git] Cloning default repository\"\r\ngit clone https:\/\/github.com\/Ym0T\/pterodactyl-rust-web-egg \/mnt\/server\/gtemp > \/dev\/null 2>&1\r\n\r\n# Copy necessary files\r\ncp -r \/mnt\/server\/gtemp\/modules \/mnt\/server\r\ncp \/mnt\/server\/gtemp\/start-modules.sh \/mnt\/server\r\ncp \/mnt\/server\/gtemp\/LICENSE \/mnt\/server\r\nchmod +x \/mnt\/server\/start-modules.sh\r\nfind \/mnt\/server\/modules -type f -name \"*.sh\" -exec chmod +x {} \\;\r\n\r\n# Remove temp directory\r\nrm -rf \/mnt\/server\/gtemp\r\n\r\n# Create necessary directories\r\nmkdir -p logs tmp data bin\r\n\r\n# Clone user repository if GIT_REPO is set\r\nif [ ! -z \"${GIT_REPO}\" ]; then\r\n    echo \"[Git] Cloning user repository: ${GIT_REPO}\"\r\n    git clone ${GIT_REPO} \/mnt\/server\/app > \/dev\/null 2>&1\r\nfi\r\n\r\necho \"[DONE] Installation complete!\"",
+            "script": "#!\/bin\/bash\r\n# Rust Web Egg Installation Script\r\napt update\r\napt install -y curl git wget\r\n\r\ncd \/mnt\/server\r\n\r\n# Add VERSION file\r\nwget -q -O - https:\/\/api.tavuru.de\/version\/Ym0T\/pterodactyl-rust-web-egg | grep -o '\"version\":\"[^\"]*\"' | cut -d'\"' -f4 | head -1 > \/mnt\/server\/VERSION\r\n\r\n# Clone the default repository into a temporary directory\r\necho \"[Git] Cloning default repository\"\r\ngit clone https:\/\/github.com\/Ym0T\/pterodactyl-rust-web-egg \/mnt\/server\/gtemp > \/dev\/null 2>&1 || { echo \"[Git] Error: Default repository clone failed.\"; exit 21; }\r\n\r\n# Copy necessary files\r\ncp -r \/mnt\/server\/gtemp\/modules \/mnt\/server\r\ncp \/mnt\/server\/gtemp\/start-modules.sh \/mnt\/server\r\ncp \/mnt\/server\/gtemp\/LICENSE \/mnt\/server\r\nchmod +x \/mnt\/server\/start-modules.sh\r\nfind \/mnt\/server\/modules -type f -name \"*.sh\" -exec chmod +x {} \\;\r\n\r\n# Remove temp directory\r\nrm -rf \/mnt\/server\/gtemp\r\n\r\n# Create necessary directories\r\nmkdir -p logs tmp data bin\r\n\r\n# Clone or update the user repository if GIT_REPO is set\r\nif [ -z \"${GIT_REPO}\" ]; then\r\n    echo \"[Git] GIT_REPO is not set, skipping.\"\r\nelse\r\n    GIT_BRANCH=\"${GIT_BRANCH:-}\"\r\n    GIT_URL=\"${GIT_REPO}\"\r\n\r\n    # Without credentials and .git, so different spellings of the same repo match\r\n    plain_url() { echo \"$1\" | sed -E 's|^(https?:\/\/)[^@\/]*@|\\1|; s|\/$||; s|\\.git$||'; }\r\n\r\n    if [ -n \"${USERNAME}\" ] && [ -n \"${ACCESS_TOKEN}\" ]; then\r\n        echo \"[Git] Using authenticated Git access.\"\r\n        GIT_URL=\"https:\/\/${USERNAME}:${ACCESS_TOKEN}@$(plain_url \"${GIT_REPO}\" | sed -E 's|^https?:\/\/||')\"\r\n    else\r\n        echo \"[Git] Using anonymous Git access.\"\r\n    fi\r\n\r\n    if [ -d \/mnt\/server\/app\/.git ]; then\r\n        # Reinstall: update the existing checkout instead of deleting it\r\n        cd \/mnt\/server\/app || exit 1\r\n        ORIGIN=$(git config --get remote.origin.url)\r\n        if [ \"$(plain_url \"${ORIGIN}\")\" != \"$(plain_url \"${GIT_REPO}\")\" ]; then\r\n            echo \"[Git] Error: app\/ contains a different repository, leaving it untouched.\"\r\n            exit 13\r\n        fi\r\n        git remote set-url origin \"${GIT_URL}\"\r\n        if [ -n \"${GIT_BRANCH}\" ]; then\r\n            echo \"[Git] Updating branch '${GIT_BRANCH}' in app\/\"\r\n            git fetch --prune origin \"${GIT_BRANCH}\" > \/dev\/null 2>&1 || { echo \"[Git] Error: git fetch failed for branch '${GIT_BRANCH}'.\"; exit 12; }\r\n            git checkout \"${GIT_BRANCH}\" > \/dev\/null 2>&1 || git checkout -b \"${GIT_BRANCH}\" \"origin\/${GIT_BRANCH}\" > \/dev\/null 2>&1 || { echo \"[Git] Error: git checkout '${GIT_BRANCH}' failed.\"; exit 12; }\r\n            git pull --ff-only origin \"${GIT_BRANCH}\" > \/dev\/null 2>&1 || { echo \"[Git] Error: git pull failed for branch '${GIT_BRANCH}'.\"; exit 12; }\r\n        else\r\n            echo \"[Git] Updating app\/\"\r\n            git pull --ff-only > \/dev\/null 2>&1 || { echo \"[Git] Error: git pull failed.\"; exit 12; }\r\n        fi\r\n        cd \/mnt\/server\r\n    elif [ -d \/mnt\/server\/app ] && [ -n \"$(ls -A \/mnt\/server\/app)\" ]; then\r\n        echo \"[Git] Error: app\/ contains files but no Git repository, leaving it untouched.\"\r\n        exit 11\r\n    else\r\n        echo \"[Git] Cloning user repository into app\/\"\r\n        if [ -n \"${GIT_BRANCH}\" ]; then\r\n            git clone --branch \"${GIT_BRANCH}\" --single-branch \"${GIT_URL}\" \/mnt\/server\/app > \/dev\/null 2>&1 || { echo \"[Git] Error: git clone failed (branch '${GIT_BRANCH}').\"; exit 14; }\r\n        else\r\n            git clone \"${GIT_URL}\" \/mnt\/server\/app > \/dev\/null 2>&1 || { echo \"[Git] Error: git clone failed.\"; exit 14; }\r\n        fi\r\n    fi\r\nfi\r\n\r\necho \"[DONE] Installation complete!\"",
             "container": "debian:bookworm-slim",
             "entrypoint": "bash"
         }
@@ -41,12 +41,52 @@
         },
         {
             "name": "Git Repository",
-            "description": "Git repository URL to clone your Rust project (leave empty to skip)",
+            "description": "Git repository URL that gets cloned into app\/ on installation (leave empty to skip)",
             "env_variable": "GIT_REPO",
             "default_value": "",
             "user_viewable": true,
             "user_editable": true,
             "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Git Branch",
+            "description": "Branch to clone and pull. Leave empty for the repository's default branch.",
+            "env_variable": "GIT_BRANCH",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Git Username",
+            "description": "Username for private repositories (used together with the access token).",
+            "env_variable": "USERNAME",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Git Access Token",
+            "description": "Password to use with git.\r\n\r\nIt's best practice to use a Personal Access Token.\r\nhttps:\/\/github.com\/settings\/tokens\r\nhttps:\/\/gitlab.com\/-\/profile\/personal_access_tokens",
+            "env_variable": "ACCESS_TOKEN",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Enable Git Module",
+            "description": "Set to 1 to run git pull in app\/ on every start, before your application is built and started.",
+            "env_variable": "GIT_STATUS",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
             "field_type": "text"
         },
         {
@@ -94,6 +134,76 @@
             "description": "Enable automatic log cleanup on container startup",
             "env_variable": "LOGCLEANER_STATUS",
             "default_value": "1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Enable Cron Module",
+            "description": "Enable the built-in cron engine for scheduled tasks (edit \/home\/container\/crontab)",
+            "env_variable": "CRON_STATUS",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Cron Config File",
+            "description": "Path to crontab configuration file",
+            "env_variable": "CRON_CONFIG_FILE",
+            "default_value": "\/home\/container\/crontab",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Enable Certbot SSL",
+            "description": "Enable automatic SSL certificate management with Let's Encrypt Certbot\r\n\r\n0 = false (default)\r\n1 = true",
+            "env_variable": "CERTBOT_STATUS",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Certbot Email",
+            "description": "Email address for Let's Encrypt certificate notifications and recovery",
+            "env_variable": "CERTBOT_EMAIL",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|email",
+            "field_type": "text"
+        },
+        {
+            "name": "Certbot Domain",
+            "description": "Primary domain name for SSL certificate (e.g., example.com or subdomain.example.com)",
+            "env_variable": "CERTBOT_DOMAIN",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|regex:\/^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?(?:\\.[a-zA-Z]{2,})+$\/",
+            "field_type": "text"
+        },
+        {
+            "name": "Certbot Staging Mode",
+            "description": "Use Let's Encrypt staging server for testing (does not count against rate limits)\r\n\r\n0 = Production (default)\r\n1 = Staging\/Testing",
+            "env_variable": "CERTBOT_STAGING",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Certbot Force Renewal",
+            "description": "Force certificate renewal even if currently valid (useful for testing)\r\n\r\n0 = Only renew when needed (default)\r\n1 = Always force renewal",
+            "env_variable": "CERTBOT_FORCE_RENEWAL",
+            "default_value": "0",
             "user_viewable": true,
             "user_editable": true,
             "rules": "required|boolean",

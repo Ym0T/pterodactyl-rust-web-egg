@@ -37,6 +37,8 @@ RUN apt-get update \
         # Runtime dependencies
         openssl \
         sqlite3 \
+        # SSL certificates (certbot module)
+        certbot \
         # Network tools
         iproute2 \
         iputils-ping \

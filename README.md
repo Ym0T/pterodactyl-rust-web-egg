@@ -1,6 +1,20 @@
-# Pterodactyl Rust Web Egg
+<div align="center">
 
-A Pterodactyl Egg for running Rust web applications with Cloudflare Tunnel support, automatic updates, and log management.
+# 🦀 Pterodactyl Rust Web Egg
+
+**A Pterodactyl Egg for Rust web applications with Git deployment, cron jobs, SSL certificates, Cloudflare Tunnel and signed auto-updates.**
+
+[![Latest Release](https://img.shields.io/github/v/release/Ym0T/pterodactyl-rust-web-egg?style=for-the-badge&logo=github&color=2ea44f)](https://github.com/Ym0T/pterodactyl-rust-web-egg/releases)
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue?style=for-the-badge)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/Ym0T/pterodactyl-rust-web-egg?style=for-the-badge&logo=github&color=yellow)](https://github.com/Ym0T/pterodactyl-rust-web-egg/stargazers)
+[![Last Commit](https://img.shields.io/github/last-commit/Ym0T/pterodactyl-rust-web-egg?style=for-the-badge)](https://github.com/Ym0T/pterodactyl-rust-web-egg/commits/main)
+
+[![Docker Image](https://img.shields.io/badge/ghcr.io-ym0t%2Fpterodactyl--rust--web--egg-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://github.com/Ym0T/pterodactyl-rust-web-egg/pkgs/container/pterodactyl-rust-web-egg)
+[![Pterodactyl](https://img.shields.io/badge/Pterodactyl-Egg-0E4688?style=for-the-badge)](https://pterodactyl.io)
+[![Rust](https://img.shields.io/badge/Rust-stable%20%7C%20nightly-B7410E?style=for-the-badge&logo=rust&logoColor=white)](#docker-images)
+[![Architecture](https://img.shields.io/badge/arch-amd64-555555?style=for-the-badge&logo=linux&logoColor=white)](#docker-images)
+
+</div>
 
 <br>
 
@@ -10,6 +24,9 @@ A Pterodactyl Egg for running Rust web applications with Cloudflare Tunnel suppo
 - [Installation](#installation)
 - [Environment Variables](#environment-variables)
 - [Auto-Update System](#auto-update-system)
+- [Git Module](#git-module)
+- [Cronjob](#cronjob)
+- [SSL Certificate with Certbot](#ssl-certificate-with-certbot)
 - [Cloudflared Tunnel Tutorial](#-cloudflared-tunnel-tutorial)
 - [Log Cleaner Module](#log-cleaner-module)
 - [Project Structure](#project-structure)
@@ -21,7 +38,10 @@ A Pterodactyl Egg for running Rust web applications with Cloudflare Tunnel suppo
 ## Features
 
 - 🦀 **Rust Toolchain**: Pre-installed Rust with cargo, clippy, and rustfmt
-- 🔄 **Auto-Update**: Automatically checks for and applies updates via Tavuru API
+- 🔄 **Auto-Update**: Automatically checks for and applies signed updates via the open-source [GitHub Version API](https://github.com/Ym0T/github-version-api)
+- 🌱 **Git Module**: Clones your app on installation and runs `git pull` on every start
+- ⏰ **Cronjob**: Built-in cron engine for scheduled tasks
+- 🔐 **Certbot**: Let's Encrypt certificates via DNS-01 challenge
 - 🧹 **LogCleaner**: Cleans `/tmp` and old logs on startup
 - 🌐 **Cloudflare Tunnel**: Secure tunnel with token validation
 
@@ -62,7 +82,10 @@ For most production use cases, **stable** is recommended.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `STARTUP_CMD` | `cargo run --release` | Command to start your Rust application |
-| `GIT_REPO` | `` | Git repository URL to clone (optional) |
+| `GIT_REPO` | `` | Git repository that gets cloned into `app/` on installation (optional) |
+| `GIT_BRANCH` | `` | Branch to clone and pull, empty for the default branch |
+| `USERNAME` | `` | Git username for private repositories |
+| `ACCESS_TOKEN` | `` | Git access token for private repositories |
 
 ### Module Settings
 
@@ -70,6 +93,14 @@ For most production use cases, **stable** is recommended.
 |----------|---------|-------------|
 | `AUTOUPDATE_STATUS` | `1` | Enable auto-update checking |
 | `AUTOUPDATE_FORCE` | `1` | Apply updates automatically (enabled by default) |
+| `GIT_STATUS` | `0` | Run `git pull` in `app/` on every start |
+| `CRON_STATUS` | `0` | Enable the cron engine |
+| `CRON_CONFIG_FILE` | `/home/container/crontab` | Path to your crontab |
+| `CERTBOT_STATUS` | `0` | Request a Let's Encrypt certificate on startup |
+| `CERTBOT_EMAIL` | `` | Email address for Let's Encrypt |
+| `CERTBOT_DOMAIN` | `` | Domain for the certificate |
+| `CERTBOT_STAGING` | `0` | Use the Let's Encrypt staging server for testing |
+| `CERTBOT_FORCE_RENEWAL` | `0` | Renew the certificate even if it is still valid |
 | `CLOUDFLARED_STATUS` | `0` | Enable Cloudflare Tunnel |
 | `CLOUDFLARED_TOKEN` | `` | Cloudflare Tunnel token |
 | `LOGCLEANER_STATUS` | `1` | Enable log cleanup |
@@ -134,10 +165,11 @@ The egg includes an intelligent auto-update system that keeps your installation 
 
 ### How it works:
 
-- **Automatic Version Checking**: Uses the Tavuru API to check for new releases
+- **Automatic Version Checking**: Uses the [GitHub Version API](https://github.com/Ym0T/github-version-api), hosted at `api.tavuru.de`, to check for new releases
 - **Smart Differential Updates**: Downloads only changed files, not the entire codebase
 - **Selective Updates**: Only updates core system files (modules, scripts)
 - **User Data Protection**: Never touches your application code or user data
+- **Signed Updates**: Every update package is signed. The updater checks the signature before installing anything and refuses packages that don't match
 - **Self-Update Capability**: Can safely update its own update mechanism
 
 ### Update Behavior:
@@ -180,6 +212,68 @@ The egg includes an intelligent auto-update system that keeps your installation 
 - ✅ **Documentation** (README.md, LICENSE)
 - ❌ **Your Rust application** (app/, src/, Cargo.toml)
 - ❌ **User data** (logs, data, databases)
+
+<br>
+
+## Git Module
+
+- Put your repository URL into `GIT_REPO`. On installation it is cloned into `app/`
+- For private repositories also set `USERNAME` and `ACCESS_TOKEN` (a personal access token), and `GIT_BRANCH` if you don't want the default branch
+- Set `GIT_STATUS` to `1` to run `git pull` in `app/` on every start, before your application is built and started
+- Point the startup command at the app folder, for example `cd app && cargo run --release`
+- Reinstalling the server updates `app/` instead of deleting it. If `app/` contains a different repository or files without Git, the installer leaves it untouched and stops with an error
+
+<br>
+
+## Cronjob
+
+The egg includes a **container-native cron engine** for scheduled tasks, no system cron required.
+
+- Set `CRON_STATUS` to `1`
+- Edit `/home/container/crontab` (created on the first start if it doesn't exist)
+- Jobs run in the background next to your application, the output goes to `/home/container/logs/cron.log`
+
+```bash
+# Every minute
+* * * * * echo "$(date): Task executed" >> /home/container/logs/task.log
+
+# Every night at 3 AM: run a maintenance binary of your app
+0 3 * * * /home/container/app/target/release/cleanup >> /home/container/logs/cleanup.log 2>&1
+
+# Daily backup of the data folder at 2 AM
+0 2 * * * tar -czf /home/container/data-backup-$(date +%Y%m%d).tar.gz -C /home/container data
+```
+
+Each time field is either `*` or a single number without leading zeros. Steps (`*/15`), ranges (`1-5`) and lists (`1,15`) are not supported. Always use absolute paths.
+
+<br>
+
+## SSL Certificate with Certbot
+
+If your application serves HTTPS itself, the Certbot module gets a Let's Encrypt certificate through the DNS-01 challenge. No open port 80 is needed. With a Cloudflare Tunnel you don't need this, Cloudflare handles TLS.
+
+1. Set `CERTBOT_STATUS=1`, `CERTBOT_EMAIL` and `CERTBOT_DOMAIN`. Use `CERTBOT_STAGING=1` for the first try
+2. Start the server. Certbot shows a TXT record for `_acme-challenge.yourdomain.com`
+3. Create that record at your DNS provider and wait a few minutes
+4. In the Pterodactyl console type a space and press Enter, twice
+5. Once it works with staging, set `CERTBOT_STAGING=0` and `CERTBOT_FORCE_RENEWAL=1` for a real certificate, then set `CERTBOT_FORCE_RENEWAL` back to `0`
+
+The files end up in `/home/container/letsencrypt/config/live/yourdomain.com/`. Your app needs `fullchain.pem` and `privkey.pem`, for example with [axum-server](https://crates.io/crates/axum-server):
+
+```rust
+use axum_server::tls_rustls::RustlsConfig;
+
+let config = RustlsConfig::from_pem_file(
+    "/home/container/letsencrypt/config/live/yourdomain.com/fullchain.pem",
+    "/home/container/letsencrypt/config/live/yourdomain.com/privkey.pem",
+)
+.await?;
+axum_server::bind_rustls(addr, config)
+    .serve(app.into_make_service())
+    .await?;
+```
+
+Certificates are valid for 90 days and are **not** renewed automatically. Renew them before they expire with `CERTBOT_FORCE_RENEWAL=1`.
 
 <br>
 
@@ -238,15 +332,19 @@ The LogCleaner module automatically cleans up temporary files and old logs on co
 /home/container/
 ├── modules/
 │   ├── autoupdate/     # Auto-update module
+│   ├── certbot/        # SSL certificate module
 │   ├── cloudflared/    # Cloudflare Tunnel module
+│   ├── cron/           # Cron engine
+│   ├── git/            # Git pull on startup
 │   └── logcleaner/     # Log cleanup module
-├── scripts/            # Custom scripts
 ├── logs/               # Application logs
 ├── tmp/                # Temporary files
 ├── data/               # Persistent data
 ├── bin/                # Custom binaries
 ├── app/                # Your Rust application (if cloned via GIT_REPO)
+├── letsencrypt/        # Certificates (created by the certbot module)
 ├── .cargo/             # Cargo registry and cache
+├── crontab             # Your cron jobs (created by the cron module)
 ├── start-modules.sh    # Module orchestrator
 └── VERSION             # Current version file
 ```
@@ -261,7 +359,7 @@ The LogCleaner module automatically cleans up temporary files and old logs on co
 - Cargo cache and registry are stored in `/home/container/.cargo/`
 - First build may take longer as dependencies are compiled
 - Use `RUST_LOG` environment variable to control logging verbosity
-- Auto-updates are powered by the [Tavuru API](https://api.tavuru.de) for reliable version management
+- Auto-updates are served from `api.tavuru.de`, which runs the [GitHub Version API](https://github.com/Ym0T/github-version-api). Its source code is public, so you can check exactly what it does
 - For production, consider using pre-compiled binaries instead of `cargo run`
 
 <br>

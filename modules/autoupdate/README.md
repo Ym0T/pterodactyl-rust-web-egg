@@ -1,10 +1,10 @@
 # Auto-Update Module
 
-This module automatically checks for and applies updates to the Pterodactyl Rust Web Egg using the Tavuru API. It runs as the first module during container startup to ensure you're always running the latest version.
+This module automatically checks for and applies updates to the Pterodactyl Rust Web Egg using the [GitHub Version API](https://github.com/Ym0T/github-version-api) hosted at `api.tavuru.de`. It runs as the first module during container startup to ensure you're always running the latest version.
 
 ## Features
 
-- ✅ **Automatic version checking** using Tavuru API
+- ✅ **Automatic version checking** using the GitHub Version API
 - ✅ **Smart differential updates** - only downloads changed files
 - ✅ **Selective file updates** - only updates allowed directories and files
 - ✅ **Version tracking** via local version file
@@ -12,7 +12,7 @@ This module automatically checks for and applies updates to the Pterodactyl Rust
 - ✅ **Safe update process** with rollback protection
 - ✅ **Configurable update behavior** via environment variables
 - ✅ **Network timeout protection** for reliable operations
-- ✅ **Cryptographic signature verification** for secure updates
+- ✅ **Signed updates** - nothing is installed without a valid signed manifest
 
 ## Configuration
 
@@ -27,7 +27,6 @@ The auto-update module only updates specific directories and files to maintain s
 
 ### **Allowed Directories:**
 - `modules/` - All module scripts and configurations
-- `scripts/` - Custom scripts
 
 ### **Allowed Files:**
 - `start-modules.sh` - Main orchestration script
@@ -48,13 +47,13 @@ The auto-update module only updates specific directories and files to maintain s
 2. **API Query**: Fetches latest version from `https://api.tavuru.de/version/Ym0T/pterodactyl-rust-web-egg`
 3. **Comparison**: Compares current vs latest version
 4. **Diff Download**: If update available, downloads differential update package
-5. **Signature Verification**: Verifies cryptographic signature (if configured)
+5. **Signature Verification**: Checks the signed manifest and refuses the update if anything doesn't match
 6. **Selective Apply**: Applies only changes to allowed directories/files
 7. **Version Update**: Updates version file with new version
 
 ## API Integration
 
-This module uses the **Tavuru API** for version management:
+This module uses the [GitHub Version API](https://github.com/Ym0T/github-version-api), hosted at `api.tavuru.de`. The source code is public, and [SIGNING.md](https://github.com/Ym0T/github-version-api/blob/main/SIGNING.md) describes the signed manifest the module checks before installing an update:
 
 ### Version API
 ```bash
@@ -100,9 +99,9 @@ GET https://api.tavuru.de/diff/Ym0T/pterodactyl-rust-web-egg/{from}/{to}?zip=tru
   Files modified: 5
   Files removed: 1
 [AutoUpdate] Downloading update package...
-[AutoUpdate] Verifying cryptographic signature...
-[AutoUpdate] Hash verified: a1b2c3d4e5f6...
-[AutoUpdate] Signature verified - update is authentic
+[AutoUpdate] Verifying signed manifest...
+[AutoUpdate] Signature verified
+[AutoUpdate] Update verified: Ym0T/pterodactyl-rust-web-egg v1.0.0 → v1.1.0, hash a1b2c3d4e5f6...
 [AutoUpdate] Extracting and applying updates...
 [AutoUpdate] Updating directory: modules
 [AutoUpdate] Updating file: start-modules.sh
@@ -115,7 +114,7 @@ GET https://api.tavuru.de/diff/Ym0T/pterodactyl-rust-web-egg/{from}/{to}?zip=tru
 
 - **Limited Scope**: Only updates approved directories and files
 - **Version Verification**: Uses official API for version information
-- **Signature Verification**: Ed25519 cryptographic signatures ensure authenticity
+- **Signed Updates**: Every update package comes with a manifest signed by the API. The module checks the signature with the public key embedded in `start.sh`, and that the manifest names this repository, the installed and the new version, the SHA-256 of the package and a recent creation time. Anything that doesn't match is not installed
 - **Safe Downloads**: Temporary files are cleaned up after use
 - **Network Timeouts**: Prevents hanging on network issues
 - **Rollback Safety**: Original files remain untouched during download
@@ -140,8 +139,7 @@ echo "unknown" > /home/container/VERSION
 
 - **wget/curl**: For API requests and file downloads
 - **unzip**: For extracting update packages
-- **openssl**: For signature verification (optional)
-- **sha256sum**: For hash verification
+- **openssl/sha256sum/base64**: For verifying signed updates (without them, updates are refused)
 - Standard Unix utilities (cp, chmod, mkdir, etc.)
 
 All dependencies are included in the base container image.
