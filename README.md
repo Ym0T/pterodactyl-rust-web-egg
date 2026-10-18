@@ -5,7 +5,7 @@
 **A Pterodactyl Egg for Rust web applications with Git deployment, cron jobs, SSL certificates, Cloudflare Tunnel and signed auto-updates.**
 
 [![Latest Release](https://img.shields.io/github/v/release/Ym0T/pterodactyl-rust-web-egg?style=for-the-badge&logo=github&color=2ea44f)](https://github.com/Ym0T/pterodactyl-rust-web-egg/releases)
-[![License](https://img.shields.io/badge/license-GPL--3.0-blue?style=for-the-badge)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/Ym0T/pterodactyl-rust-web-egg?style=for-the-badge&logo=github&color=yellow)](https://github.com/Ym0T/pterodactyl-rust-web-egg/stargazers)
 [![Last Commit](https://img.shields.io/github/last-commit/Ym0T/pterodactyl-rust-web-egg?style=for-the-badge)](https://github.com/Ym0T/pterodactyl-rust-web-egg/commits/main)
 
@@ -366,4 +366,4 @@ The LogCleaner module automatically cleans up temporary files and old logs on co
 
 ## License
 
-[GPL-3.0 License](https://choosealicense.com/licenses/gpl-3.0/)
+[MIT License](https://choosealicense.com/licenses/mit/)
