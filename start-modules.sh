@@ -28,6 +28,18 @@ echo -e "\n${BOLD_BLUE}[Orchestrator] Rust Web Egg - Module orchestration starti
 # Helper to test enabled status: true or 1
 is_enabled() { [[ "$1" =~ ^(true|1)$ ]]; }
 
+# Show the versions shipped with the image. Rust is queried from /, so a rust-toolchain
+# file in the project can't make rustup switch to or install another toolchain here.
+header "Image versions"
+show_version() { echo -e "${WHITE}  $(printf '%-12s' "$1") ${2:-${3:-not found}}${NC}"; }
+show_version "Debian"      "$(cat /etc/debian_version 2>/dev/null)"
+show_version "Rust"        "$(cd / && rustc --version 2>/dev/null | cut -d' ' -f2-)"
+show_version "Cargo"       "$(cd / && cargo --version 2>/dev/null | awk '{print $2}')"
+show_version "cloudflared" "$(cloudflared --version 2>/dev/null | awk 'NR==1 {print $3}')"
+show_version "Git"         "$(git --version 2>/dev/null | awk '{print $3}')"
+show_version "OpenSSL"     "$(openssl version 2>/dev/null | awk '{print $2}')"
+show_version "Certbot"     "$(dpkg-query -W -f='${Version}' certbot 2>/dev/null | cut -d- -f1)"
+
 # 1) Run logcleaner first if enabled
 LOGCLEANER_STATUS="${LOGCLEANER_STATUS:-false}"
 if is_enabled "$LOGCLEANER_STATUS"; then
