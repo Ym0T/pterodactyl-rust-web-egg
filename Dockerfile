@@ -7,6 +7,12 @@ LABEL org.opencontainers.image.description="Pterodactyl Egg for running Rust web
 
 # Arguments for customization
 ARG RUST_VERSION=stable
+# Set by the workflow. A changed value invalidates the build cache, so the packages
+# get reinstalled when a new version is out. CACHE_MONTH forces a monthly rebuild
+# for the Debian packages. RUST_CHANNEL_HASH is declared further down, so a new
+# Rust release only rebuilds the Rust layer.
+ARG CLOUDFLARED_VERSION
+ARG CACHE_MONTH
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV USER=container
@@ -17,7 +23,8 @@ ENV RUSTUP_HOME=/opt/rust/rustup
 ENV PATH="/opt/rust/cargo/bin:${PATH}"
 
 # Install system dependencies
-RUN apt-get update \
+RUN echo "Upstream: cloudflared=${CLOUDFLARED_VERSION} month=${CACHE_MONTH}" \
+    && apt-get update \
     && apt-get install -y --no-install-recommends \
         # Essential tools
         ca-certificates \
@@ -53,7 +60,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install Rust toolchain to /opt/rust
-RUN mkdir -p /opt/rust \
+ARG RUST_CHANNEL_HASH
+RUN echo "Rust ${RUST_VERSION} channel manifest: ${RUST_CHANNEL_HASH}" \
+    && mkdir -p /opt/rust \
     && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${RUST_VERSION} \
     && . "$CARGO_HOME/env" \
     && rustup component add clippy rustfmt \
